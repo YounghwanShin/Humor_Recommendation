@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+.history
+
+joke_model
+summary_model
+.vscode
+
 # Distribution / packaging
 .Python
 build/

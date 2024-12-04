@@ -9,7 +9,7 @@ import os
 import evaluate
 
 class DialogueDataset(Dataset):
-    """대화와 요약을 위한 데이터셋 클래스"""
+    """대화 요약 데이터셋 클래스"""
     def __init__(self, dialogues, summaries, tokenizer, max_length=512):
         self.tokenizer = tokenizer
         self.dialogues = dialogues
@@ -23,7 +23,6 @@ class DialogueDataset(Dataset):
         dialogue = self.dialogues[idx]
         summary = self.summaries[idx]
 
-        # 입력 텍스트에 특수 토큰 추가
         dialogue = "summarize: " + dialogue
 
         inputs = self.tokenizer(
@@ -49,136 +48,154 @@ class DialogueDataset(Dataset):
         }
 
 class JokeChatSystem:
-    """대화 요약과 농담 생성을 위한 시스템 클래스"""
-    def __init__(self, model_dir='saved_models'):
-        self.model_dir = model_dir
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
+    def __init__(self, config=None):
+        if config is None:
+            from config import SystemConfig
+            self.config = SystemConfig()
+        else:
+            self.config = config
             
-        # BART 모델 초기화
-        self.summary_tokenizer = AutoTokenizer.from_pretrained('facebook/bart-base')
-        self.summary_model = AutoModelForSeq2SeqLM.from_pretrained('facebook/bart-base')
+        self.summary_model_dir = self.config.model_config.summary_model_dir
+        self.joke_model_dir = self.config.model_config.joke_model_dir
         
-        # GPT-2 모델 초기화
-        self.joke_tokenizer = AutoTokenizer.from_pretrained('openai-community/gpt2')
-        self.joke_model = AutoModelForCausalLM.from_pretrained('openai-community/gpt2')
+        os.makedirs(self.summary_model_dir, exist_ok=True)
+        os.makedirs(self.joke_model_dir, exist_ok=True)
+            
+        # 토크나이저 초기화
+        self.summary_tokenizer = AutoTokenizer.from_pretrained(self.config.model_config.summary_model_name)
+        self.summary_model = AutoModelForSeq2SeqLM.from_pretrained(self.config.model_config.summary_model_name)
         
-        # pad_token 설정
+        self.joke_tokenizer = AutoTokenizer.from_pretrained(self.config.model_config.joke_model_name)
+        self.joke_model = AutoModelForCausalLM.from_pretrained(self.config.model_config.joke_model_name)
+        
+        # 토크나이저 특수 토큰 설정
         if self.joke_tokenizer.pad_token is None:
             self.joke_tokenizer.pad_token = self.joke_tokenizer.eos_token
             self.joke_model.config.pad_token_id = self.joke_tokenizer.pad_token_id
         
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(self.config.model_config.device)
         self.summary_model.to(self.device)
         self.joke_model.to(self.device)
 
-    def save_models(self, epoch=None):
-        """모든 모델 저장"""
+    def save_models(self, epoch=None, model_type=None):
         if epoch is not None:
-            summary_path = os.path.join(self.model_dir, f'summary_model_epoch_{epoch}')
-            joke_path = os.path.join(self.model_dir, f'joke_model_epoch_{epoch}')
+            summary_path = os.path.join(self.summary_model_dir, f'epoch_{epoch}')
+            joke_path = os.path.join(self.joke_model_dir, f'epoch_{epoch}')
         else:
-            summary_path = os.path.join(self.model_dir, 'summary_model')
-            joke_path = os.path.join(self.model_dir, 'joke_model')
+            summary_path = os.path.join(self.summary_model_dir, 'latest')
+            joke_path = os.path.join(self.joke_model_dir, 'latest')
         
-        self.summary_model.save_pretrained(summary_path)
-        self.summary_tokenizer.save_pretrained(summary_path)
-        self.joke_model.save_pretrained(joke_path)
-        self.joke_tokenizer.save_pretrained(joke_path)
-        print(f"Models saved to {self.model_dir}")
+        if model_type is None or model_type == 'summary':
+            self.summary_model.save_pretrained(summary_path)
+            self.summary_tokenizer.save_pretrained(summary_path)
+            print(f"Summary model saved to {summary_path}")
+            
+        if model_type is None or model_type == 'joke':
+            self.joke_model.save_pretrained(joke_path)
+            self.joke_tokenizer.save_pretrained(joke_path)
+            print(f"Joke model saved to {joke_path}")
 
-    def load_models(self, epoch=None):
-        """모든 모델 로드"""
+    def load_models(self, epoch=None, model_type=None):
         try:
             if epoch is not None:
-                summary_path = os.path.join(self.model_dir, f'summary_model_epoch_{epoch}')
-                joke_path = os.path.join(self.model_dir, f'joke_model_epoch_{epoch}')
+                summary_path = os.path.join(self.summary_model_dir, f'epoch_{epoch}')
+                joke_path = os.path.join(self.joke_model_dir, f'epoch_{epoch}')
             else:
-                summary_path = os.path.join(self.model_dir, 'summary_model')
-                joke_path = os.path.join(self.model_dir, 'joke_model')
+                summary_path = os.path.join(self.summary_model_dir, 'latest')
+                joke_path = os.path.join(self.joke_model_dir, 'latest')
 
-            self.summary_model = AutoModelForSeq2SeqLM.from_pretrained(summary_path)
-            self.summary_tokenizer = AutoTokenizer.from_pretrained(summary_path)
-            self.joke_model = AutoModelForCausalLM.from_pretrained(joke_path)
-            self.joke_tokenizer = AutoTokenizer.from_pretrained(joke_path)
-            
-            self.summary_model.to(self.device)
-            self.joke_model.to(self.device)
-            print("Models loaded successfully")
+            if model_type is None or model_type == 'summary':
+                self.summary_model = AutoModelForSeq2SeqLM.from_pretrained(summary_path)
+                self.summary_tokenizer = AutoTokenizer.from_pretrained(summary_path)
+                self.summary_model.to(self.device)
+                print(f"Summary model loaded from {summary_path}")
+
+            if model_type is None or model_type == 'joke':
+                self.joke_model = AutoModelForCausalLM.from_pretrained(joke_path)
+                self.joke_tokenizer = AutoTokenizer.from_pretrained(joke_path)
+                self.joke_model.to(self.device)
+                print(f"Joke model loaded from {joke_path}")
+
         except Exception as e:
             print(f"Error loading models: {e}")
 
     def generate_summary(self, dialogue):
-        """대화 요약 생성"""
-        # 입력 텍스트에 특수 토큰 추가
+        dialogue = dialogue.strip()
         dialogue = "summarize: " + dialogue
         
         inputs = self.summary_tokenizer(
             dialogue,
-            max_length=512,
+            max_length=self.config.training_config.max_source_length,
             truncation=True,
-            padding=True,
+            padding='max_length',
             return_tensors='pt'
         ).to(self.device)
 
         summary_ids = self.summary_model.generate(
             inputs['input_ids'],
             attention_mask=inputs['attention_mask'],
-            max_length=150,
-            min_length=40,
-            length_penalty=2.0,
-            num_beams=4,
+            max_length=self.config.generation_config.summary_max_length,
+            min_length=self.config.generation_config.summary_min_length,
+            length_penalty=self.config.generation_config.summary_length_penalty,
+            num_beams=self.config.generation_config.summary_num_beams,
             early_stopping=True,
-            no_repeat_ngram_size=3
+            no_repeat_ngram_size=self.config.generation_config.summary_no_repeat_ngram_size,
+            pad_token_id=self.summary_tokenizer.pad_token_id,
+            bos_token_id=self.summary_tokenizer.bos_token_id,
+            eos_token_id=self.summary_tokenizer.eos_token_id
         )
 
         summary = self.summary_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         return summary
 
-    def recommend_joke(self, context, max_length=100):
+    def recommend_joke(self, context):
         """개선된 농담 추천 함수"""
-        # Few-shot 예시를 포함한 프롬프트 구성
-        prompt = f"""Here are some examples of context-related jokes:
+        context = context.strip()
+        
+        # 프롬프트 예시를 분리하여 시스템 프롬프트로 사용
+        system_prompt = """Here are some examples of context-related jokes:
+    Context: A student is struggling with math homework
+    Joke: Why did the math book look so sad? Because it had too many problems!
 
-        Context: A student is struggling with math homework
-        Joke: Why did the math book look so sad? Because it had too many problems!
+    Context: Someone is learning to cook
+    Joke: Why did the cookie go to the doctor? Because it was feeling crumbly!"""
 
-        Context: Someone is learning to cook
-        Joke: Why did the cookie go to the doctor? Because it was feeling crumbly!
+        user_prompt = f"Context: {context}\nJoke:"
 
-        Now generate a related joke for this context:
-        Context: {context}
-        Joke:"""
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
         inputs = self.joke_tokenizer(
-            prompt,
-            return_tensors='pt',
-            max_length=512,
-            truncation=True
+            full_prompt,
+            padding=True,
+            truncation=True,
+            max_length=self.config.training_config.max_source_length,
+            return_tensors='pt'
         ).to(self.device)
 
+        attention_mask = torch.ones_like(inputs['input_ids'])
+        
         joke_ids = self.joke_model.generate(
             inputs['input_ids'],
-            max_length=max_length,
-            num_return_sequences=3,
-            num_beams=5,
-            temperature=0.7,
-            no_repeat_ngram_size=2,
-            top_k=50,
-            top_p=0.95,
+            attention_mask=attention_mask,
+            max_new_tokens=50,
+            num_return_sequences=self.config.training_config.num_return_sequences,
+            num_beams=self.config.generation_config.joke_num_beams,
+            do_sample=True,
+            temperature=self.config.generation_config.joke_temperature,
+            top_k=self.config.generation_config.joke_top_k,
+            top_p=self.config.generation_config.joke_top_p,
             pad_token_id=self.joke_tokenizer.pad_token_id,
-            eos_token_id=self.joke_tokenizer.eos_token_id
+            eos_token_id=self.joke_tokenizer.eos_token_id,
+            no_repeat_ngram_size=self.config.generation_config.joke_no_repeat_ngram_size
         )
 
-        jokes = [self.joke_tokenizer.decode(ids, skip_special_tokens=True) for ids in joke_ids]
+        prompt_length = len(inputs['input_ids'][0])
+        jokes = []
+        
+        for ids in joke_ids:
+            joke = self.joke_tokenizer.decode(ids[prompt_length:], skip_special_tokens=True)
+            joke = joke.split('Context:')[0].split('Joke:')[0].strip()
+            if joke:  
+                jokes.append(joke)
+        
         return jokes
-
-    def evaluate_summary(self, dialogue, generated_summary, reference_summary):
-        """요약 품질 평가"""
-        rouge = evaluate.load('rouge')
-        results = rouge.compute(
-            predictions=[generated_summary],
-            references=[reference_summary],
-            use_stemmer=True
-        )
-        return results

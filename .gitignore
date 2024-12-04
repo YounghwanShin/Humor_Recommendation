@@ -8,9 +8,14 @@ __pycache__/
 
 .history
 
+saved_models
 joke_model
 summary_model
 .vscode
+summary_model_epoch_14
+processed_data
+filtered_data
+data_code_file
 
 # Distribution / packaging
 .Python

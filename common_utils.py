@@ -6,10 +6,8 @@ from transformers import (
 )
 from torch.utils.data import Dataset
 import os
-import evaluate
 
 class DialogueDataset(Dataset):
-    """대화 요약 데이터셋 클래스"""
     def __init__(self, dialogues, summaries, tokenizer, max_length=512):
         self.tokenizer = tokenizer
         self.dialogues = dialogues
@@ -22,7 +20,6 @@ class DialogueDataset(Dataset):
     def __getitem__(self, idx):
         dialogue = self.dialogues[idx]
         summary = self.summaries[idx]
-
         dialogue = "summarize: " + dialogue
 
         inputs = self.tokenizer(
@@ -61,14 +58,12 @@ class JokeChatSystem:
         os.makedirs(self.summary_model_dir, exist_ok=True)
         os.makedirs(self.joke_model_dir, exist_ok=True)
             
-        # 토크나이저 초기화
         self.summary_tokenizer = AutoTokenizer.from_pretrained(self.config.model_config.summary_model_name)
         self.summary_model = AutoModelForSeq2SeqLM.from_pretrained(self.config.model_config.summary_model_name)
         
         self.joke_tokenizer = AutoTokenizer.from_pretrained(self.config.model_config.joke_model_name)
         self.joke_model = AutoModelForCausalLM.from_pretrained(self.config.model_config.joke_model_name)
         
-        # 토크나이저 특수 토큰 설정
         if self.joke_tokenizer.pad_token is None:
             self.joke_tokenizer.pad_token = self.joke_tokenizer.eos_token
             self.joke_model.config.pad_token_id = self.joke_tokenizer.pad_token_id
@@ -88,12 +83,10 @@ class JokeChatSystem:
         if model_type is None or model_type == 'summary':
             self.summary_model.save_pretrained(summary_path)
             self.summary_tokenizer.save_pretrained(summary_path)
-            print(f"Summary model saved to {summary_path}")
             
         if model_type is None or model_type == 'joke':
             self.joke_model.save_pretrained(joke_path)
             self.joke_tokenizer.save_pretrained(joke_path)
-            print(f"Joke model saved to {joke_path}")
 
     def load_models(self, epoch=None, model_type=None):
         try:
@@ -108,13 +101,11 @@ class JokeChatSystem:
                 self.summary_model = AutoModelForSeq2SeqLM.from_pretrained(summary_path)
                 self.summary_tokenizer = AutoTokenizer.from_pretrained(summary_path)
                 self.summary_model.to(self.device)
-                print(f"Summary model loaded from {summary_path}")
 
             if model_type is None or model_type == 'joke':
                 self.joke_model = AutoModelForCausalLM.from_pretrained(joke_path)
                 self.joke_tokenizer = AutoTokenizer.from_pretrained(joke_path)
                 self.joke_model.to(self.device)
-                print(f"Joke model loaded from {joke_path}")
 
         except Exception as e:
             print(f"Error loading models: {e}")
@@ -149,23 +140,11 @@ class JokeChatSystem:
         return summary
 
     def recommend_joke(self, context):
-        """개선된 농담 추천 함수"""
         context = context.strip()
-        
-        # 프롬프트 예시를 분리하여 시스템 프롬프트로 사용
-        system_prompt = """Here are some examples of context-related jokes:
-    Context: A student is struggling with math homework
-    Joke: Why did the math book look so sad? Because it had too many problems!
-
-    Context: Someone is learning to cook
-    Joke: Why did the cookie go to the doctor? Because it was feeling crumbly!"""
-
-        user_prompt = f"Context: {context}\nJoke:"
-
-        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        prompt = f"Context: {context}\nJoke:"
 
         inputs = self.joke_tokenizer(
-            full_prompt,
+            prompt,
             padding=True,
             truncation=True,
             max_length=self.config.training_config.max_source_length,

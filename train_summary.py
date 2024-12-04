@@ -1,15 +1,44 @@
 from common_utils import JokeChatSystem, DialogueDataset
-from config import SystemConfig, TrainingConfig
+from config import SystemConfig
+from visualization import plot_training_losses, save_training_history
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from transformers import AdamW, get_linear_schedule_with_warmup
 import torch.nn.utils
 from tqdm import tqdm
+import torch
+
+def evaluate_model(model, dataloader, device):
+    model.eval()
+    total_loss = 0
+    eval_steps = 0
+    
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc='Validation'):
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels = batch['labels'].to(device)
+
+            outputs = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                labels=labels
+            )
+            
+            total_loss += outputs.loss.item()
+            eval_steps += 1
+
+    return total_loss / eval_steps
 
 def train_summarizer(system, train_dataloader, val_dataloader):
     training_config = system.config.training_config
     
-    optimizer = AdamW(system.summary_model.parameters(), lr=training_config.learning_rate)
+    optimizer = AdamW(
+        system.summary_model.parameters(),
+        lr=training_config.learning_rate,
+        weight_decay=0.01
+    )
+    
     total_steps = len(train_dataloader) * training_config.num_epochs
     warmup_steps = int(total_steps * training_config.warmup_ratio)
     
@@ -19,12 +48,17 @@ def train_summarizer(system, train_dataloader, val_dataloader):
         num_training_steps=total_steps
     )
     
+    train_losses = []
+    val_losses = []
+    
     best_val_loss = float('inf')
+    early_stopping_patience = 3
+    early_stopping_counter = 0
     
     for epoch in range(training_config.num_epochs):
-        print(f"\nEpoch {epoch + 1}/{training_config.num_epochs}")
         system.summary_model.train()
         total_loss = 0
+        train_steps = 0
         
         for batch in tqdm(train_dataloader, desc='Training'):
             input_ids = batch['input_ids'].to(system.device)
@@ -39,6 +73,7 @@ def train_summarizer(system, train_dataloader, val_dataloader):
 
             loss = outputs.loss
             total_loss += loss.item()
+            train_steps += 1
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
@@ -49,43 +84,32 @@ def train_summarizer(system, train_dataloader, val_dataloader):
             scheduler.step()
             optimizer.zero_grad()
 
-        avg_train_loss = total_loss / len(train_dataloader)
-        print(f'Average training loss: {avg_train_loss}')
+        avg_train_loss = total_loss / train_steps
 
-        system.summary_model.eval()
-        val_loss = 0
+        val_loss = evaluate_model(system.summary_model, val_dataloader, system.device)
         
-        with torch.no_grad():
-            for batch in tqdm(val_dataloader, desc='Validating'):
-                input_ids = batch['input_ids'].to(system.device)
-                attention_mask = batch['attention_mask'].to(system.device)
-                labels = batch['labels'].to(system.device)
+        train_losses.append(avg_train_loss)
+        val_losses.append(val_loss)
 
-                outputs = system.summary_model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    labels=labels
-                )
-                
-                val_loss += outputs.loss.item()
-
-        avg_val_loss = val_loss / len(val_dataloader)
-        print(f'Validation loss: {avg_val_loss}')
-
-        system.save_models(epoch=epoch, model_type='summary')
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            system.save_models(model_type='summary')
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            system.save_models(epoch=epoch, model_type='summary')
+            early_stopping_counter = 0
+        else:
+            early_stopping_counter += 1
+            
+            if early_stopping_counter >= early_stopping_patience:
+                break
+    
+    plot_training_losses(train_losses, val_losses, 'summary', 'training_plots')
+    save_training_history(train_losses, val_losses, 'summary', 'training_plots')
 
 def main():
-    print("Loading DialogSum dataset...")
     dialogsum_dataset = load_dataset('knkarthick/dialogsum')
 
     config = SystemConfig()
-    
     system = JokeChatSystem(config=config)
 
-    print("Preparing datasets...")
     train_dataset = DialogueDataset(
         dialogsum_dataset['train']['dialogue'],
         dialogsum_dataset['train']['summary'],
@@ -111,11 +135,9 @@ def main():
         batch_size=config.training_config.batch_size
     )
 
-    print("Starting training...")
     train_summarizer(system, train_dataloader, val_dataloader)
-    print("Training completed!")
     
-    config.save_config('training_config.json')
+    config.save_config('summary_training_config.json')
 
 if __name__ == "__main__":
     main()

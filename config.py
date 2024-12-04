@@ -18,26 +18,19 @@ class TrainingConfig:
     num_epochs: int = 5
     warmup_ratio: float = 0.1
     max_grad_norm: float = 1.0
-    
-    # 요약 모델 설정
     max_source_length: int = 384  
     max_target_length: int = 128
-    
-    # 농담 생성 모델 설정
     max_joke_length: int = 128 
     num_return_sequences: int = 3
 
 @dataclass
 class GenerationConfig:
-    # 요약 생성 설정
-    summary_max_length: int = 128  # 줄임
+    summary_max_length: int = 128
     summary_min_length: int = 30
     summary_length_penalty: float = 1.0
     summary_num_beams: int = 4
     summary_no_repeat_ngram_size: int = 3
-    
-    # 농담 생성 설정
-    joke_max_length: int = 100  # 줄임
+    joke_max_length: int = 100
     joke_num_beams: int = 5
     joke_temperature: float = 0.7
     joke_no_repeat_ngram_size: int = 2
@@ -55,11 +48,9 @@ class SystemConfig:
         self.training_config = training_config or TrainingConfig()
         self.generation_config = generation_config or GenerationConfig()
         
-        # device 자동 설정
         if self.model_config.device is None:
             self.model_config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
-        # 각 모델 디렉토리 생성
         os.makedirs(self.model_config.summary_model_dir, exist_ok=True)
         os.makedirs(self.model_config.joke_model_dir, exist_ok=True)
     

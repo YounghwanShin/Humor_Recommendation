@@ -4,53 +4,22 @@ import evaluate
 import time
 
 def test_dialogue_summary(system, dialogue):
-    print("\n=== Testing Dialogue Summary ===")
-    print("Original dialogue:")
-    print(dialogue)
-    
-    start_time = time.time()
-    
     summary = system.generate_summary(dialogue)
-    
-    execution_time = time.time() - start_time
-    
-    print("\nGenerated Summary:")
-    print(summary)
-    print(f"\nSummary generation took {execution_time:.2f} seconds")
-    
     return summary
 
 def test_joke_recommendation(system, context):
-    print("\n=== Testing Joke Recommendation ===")
-    print("Context for joke generation:")
-    print(context)
-    
     start_time = time.time()
-    
     jokes = system.recommend_joke(context)
-    
     execution_time = time.time() - start_time
-    
-    print("\nRecommended Jokes:")
-    for i, joke in enumerate(jokes, 1):
-        print(f"{i}. {joke}")
-    print(f"\nJoke generation took {execution_time:.2f} seconds")
-    
     return jokes
 
 def main():
-    print("Initializing JokeChatSystem...")
-    
     try:
         config = SystemConfig.load_config('test_config.json')
-        print("Loaded configuration from test_config.json")
     except FileNotFoundError:
         config = SystemConfig()
-        print("Created new configuration")
     
     system = JokeChatSystem(config=config)
-    
-    print("Loading trained models...")
     system.load_models()
 
     test_cases = [
@@ -89,17 +58,9 @@ def main():
     ]
 
     for i, test_case in enumerate(test_cases, 1):
-        print(f"\n{'='*50}")
-        print(f"Test Case {i}")
-        print(f"{'='*50}")
-        
         generated_summary = test_dialogue_summary(system, test_case["dialogue"])
-
         test_joke_recommendation(system, generated_summary)
-        
-        print("\n" + "="*50)
 
-    print("\nTesting direct joke generation for specific contexts...")
     specific_contexts = [
         "Someone struggling with computer programming",
         "A beautiful day at the beach",

@@ -73,20 +73,27 @@ class JokeChatSystem:
         self.joke_model.to(self.device)
 
     def save_models(self, epoch=None, model_type=None):
-        if epoch is not None:
-            summary_path = os.path.join(self.summary_model_dir, f'epoch_{epoch}')
-            joke_path = os.path.join(self.joke_model_dir, f'epoch_{epoch}')
+        if isinstance(epoch, str) and epoch == 'best':
+            summary_path = os.path.join(self.summary_model_dir, 'best_model')
+            joke_path = os.path.join(self.joke_model_dir, 'best_model')
+        elif isinstance(epoch, (int, str)):
+            summary_path = os.path.join(self.summary_model_dir, f'checkpoint_epoch_{epoch + 1}')
+            joke_path = os.path.join(self.joke_model_dir, f'checkpoint_epoch_{epoch + 1}')
         else:
             summary_path = os.path.join(self.summary_model_dir, 'latest')
             joke_path = os.path.join(self.joke_model_dir, 'latest')
         
         if model_type is None or model_type == 'summary':
+            os.makedirs(summary_path, exist_ok=True)
             self.summary_model.save_pretrained(summary_path)
             self.summary_tokenizer.save_pretrained(summary_path)
+            print(f"Summary model saved to {summary_path}")
             
         if model_type is None or model_type == 'joke':
+            os.makedirs(joke_path, exist_ok=True)
             self.joke_model.save_pretrained(joke_path)
             self.joke_tokenizer.save_pretrained(joke_path)
+            print(f"Joke model saved to {joke_path}")
 
     def load_models(self, epoch=None, model_type=None):
         try:

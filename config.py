@@ -8,14 +8,14 @@ class ModelConfig:
     summary_model_dir: str = 'saved_models/summary'
     joke_model_dir: str = 'saved_models/joke'
     summary_model_name: str = 'facebook/bart-large'
-    joke_model_name: str = 'openai-community/gpt2-medium'
+    joke_model_name: str = 'openai-community/gpt2-large'
     device: Optional[str] = None 
     
 @dataclass
 class TrainingConfig:
-    batch_size: int = 16
+    batch_size: int = 2
     learning_rate: float = 5e-5
-    num_epochs: int = 5
+    num_epochs: int = 100 
     warmup_ratio: float = 0.1
     max_grad_norm: float = 1.0
     max_source_length: int = 384  

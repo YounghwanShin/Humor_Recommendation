@@ -16,6 +16,7 @@ summary_model_epoch_14
 processed_data
 ctx_joke_tuning_data
 data_code_file
+training_plots
 
 # Distribution / packaging
 .Python

@@ -1,0 +1,41 @@
+{
+    "model_config": {
+        "summary_model_dir": "saved_models/summary",
+        "joke_model_dir": "saved_models/joke",
+        "summary_model_name": "facebook/bart-large",
+        "joke_model_name": "stabilityai/stablelm-2-zephyr-1_6b",
+        "device": null
+    },
+    "training_config": {
+        "batch_size": 16,
+        "learning_rate": 1e-5,
+        "num_epochs": 100,
+        "save_interval": 5,
+        "early_stopping_patience": 3,
+        "warmup_ratio": 0.1,
+        "max_grad_norm": 1.0,
+        "max_source_length": 384,
+        "max_target_length": 128,
+        "max_joke_length": 128,
+        "num_return_sequences": 3,
+        "lora_r": 16,
+        "lora_alpha": 32,
+        "lora_dropout": 0.05,
+        "bnb_4bit_compute_dtype": "float32",
+        "bnb_4bit_quant_type": "nf4",
+        "gradient_accumulation_steps": 8
+    },
+    "generation_config": {
+        "summary_max_length": 128,
+        "summary_min_length": 30,
+        "summary_length_penalty": 1.0,
+        "summary_num_beams": 4,
+        "summary_no_repeat_ngram_size": 3,
+        "joke_max_length": 100,
+        "joke_num_beams": 5,
+        "joke_temperature": 0.7,
+        "joke_no_repeat_ngram_size": 2,
+        "joke_top_k": 50,
+        "joke_top_p": 0.9
+    }
+}

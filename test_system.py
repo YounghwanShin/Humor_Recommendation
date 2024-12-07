@@ -1,28 +1,28 @@
+#pip install -r requirements.txt
 from common_utils import JokeChatSystem
-from config import SystemConfig
-import evaluate
 import time
+import json
+from typing import Dict, List, Any
 
-def test_dialogue_summary(system, dialogue):
-    summary = system.generate_summary(dialogue)
-    return summary
+def test_dialogue_summary(system: JokeChatSystem, dialogue: str) -> str:
+    return system.generate_summary(dialogue)
 
-def test_joke_recommendation(system, context):
+def test_joke_recommendation(system: JokeChatSystem, context: str) -> List[str]:
     start_time = time.time()
     jokes = system.recommend_joke(context)
     execution_time = time.time() - start_time
+    print(f"Joke generation time: {execution_time:.2f} seconds")
     return jokes
 
 def main():
     try:
-        config = SystemConfig.load_config('test_config.json')
+        system = JokeChatSystem('test_config.json')
     except FileNotFoundError:
-        config = SystemConfig()
+        system = JokeChatSystem()
     
-    system = JokeChatSystem(config=config)
     system.load_models()
 
-    test_cases = [
+    test_cases: List[Dict[str, str]] = [
         {
             "dialogue": """
             John: I've been trying to learn programming but it's so frustrating.
@@ -57,10 +57,22 @@ def main():
         }
     ]
 
+    print("\nRunning dialogue summary tests...")
     for i, test_case in enumerate(test_cases, 1):
+        print(f"\nTest case {i}:")
+        print("Original dialogue:")
+        print(test_case["dialogue"])
+        
         generated_summary = test_dialogue_summary(system, test_case["dialogue"])
-        test_joke_recommendation(system, generated_summary)
+        print(f"\nGenerated summary: {generated_summary}")
+        print(f"Reference summary: {test_case['reference_summary']}")
+        
+        jokes = test_joke_recommendation(system, generated_summary)
+        print("\nGenerated jokes based on summary:")
+        for j, joke in enumerate(jokes, 1):
+            print(f"Joke {j}: {joke}")
 
+    print("\nTesting specific contexts...")
     specific_contexts = [
         "Someone struggling with computer programming",
         "A beautiful day at the beach",
@@ -68,7 +80,11 @@ def main():
     ]
     
     for context in specific_contexts:
-        test_joke_recommendation(system, context)
+        print(f"\nContext: {context}")
+        jokes = test_joke_recommendation(system, context)
+        print("Generated jokes:")
+        for i, joke in enumerate(jokes, 1):
+            print(f"Joke {i}: {joke}")
 
 if __name__ == "__main__":
     main()

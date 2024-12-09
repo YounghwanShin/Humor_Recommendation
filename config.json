@@ -17,7 +17,7 @@
         "max_source_length": 384,
         "max_target_length": 128,
         "max_joke_length": 128,
-        "num_return_sequences": 3,
+        "num_return_sequences": 1,
         "lora_r": 16,
         "lora_alpha": 32,
         "lora_dropout": 0.05,
@@ -26,16 +26,16 @@
         "gradient_accumulation_steps": 8
     },
     "generation_config": {
-        "summary_max_length": 128,
-        "summary_min_length": 30,
-        "summary_length_penalty": 1.0,
-        "summary_num_beams": 4,
-        "summary_no_repeat_ngram_size": 3,
-        "joke_max_length": 100,
-        "joke_num_beams": 5,
-        "joke_temperature": 0.7,
-        "joke_no_repeat_ngram_size": 2,
-        "joke_top_k": 50,
-        "joke_top_p": 0.9
+    "summary_max_length": 128,
+    "summary_min_length": 30,
+    "summary_length_penalty": 1.0,
+    "summary_num_beams": 4,
+    "summary_no_repeat_ngram_size": 3,
+    "joke_max_length": 100, 
+    "joke_num_beams": 3,           
+    "joke_temperature": 0.9,     
+    "joke_no_repeat_ngram_size": 2,
+    "joke_top_k": 40,           
+    "joke_top_p": 0.95    
     }
 }

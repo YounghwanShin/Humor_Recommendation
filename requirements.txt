@@ -9,5 +9,5 @@ trl>=0.7.2
 matplotlib>=3.7.1
 pandas>=2.0.0
 tqdm>=4.65.0
-numpy==1.24.3
+numpy
 python-dotenv>=0.19.0

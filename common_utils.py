@@ -186,21 +186,35 @@ class JokeChatSystem:
                 joke_path = os.path.join(self.config['model_config']['joke_model_dir'], 'latest')
 
             if model_type is None or model_type == 'summary':
+                print(f"Loading summary model from {summary_path}")
                 self.summary_model = AutoModelForSeq2SeqLM.from_pretrained(summary_path)
                 self.summary_tokenizer = AutoTokenizer.from_pretrained(summary_path)
                 self.summary_model.to(self.device)
-                print(f"Summary model loaded from {summary_path}")
+                print("Summary model loaded successfully")
 
             if model_type is None or model_type == 'joke':
-                self._initialize_models()
-                self.joke_model = PeftModel.from_pretrained(
-                    self.joke_model,
-                    joke_path
-                )
-                print(f"Joke model (LoRA weights) loaded from {joke_path}")
+                print(f"Loading joke model from {joke_path}")
+                if not hasattr(self, 'joke_model'):
+                    self._initialize_models()
+                
+                if os.path.exists(joke_path):
+                    self.joke_model = PeftModel.from_pretrained(
+                        self.joke_model,
+                        joke_path,
+                        is_trainable=False 
+                    )
+                    print("Joke model LoRA weights loaded successfully")
+                else:
+                    print(f"Warning: Joke model path {joke_path} does not exist")
+
+                if hasattr(self, 'summary_model'):
+                    self.summary_model.eval()
+                if hasattr(self, 'joke_model'):
+                    self.joke_model.eval()
 
         except Exception as e:
-            print(f"Error loading models: {e}")
+            print(f"Error loading models: {str(e)}")
+            raise
 
     def generate_summary(self, dialogue: str) -> str:
         dialogue = dialogue.strip()
@@ -232,7 +246,39 @@ class JokeChatSystem:
 
     def recommend_joke(self, context: str) -> List[str]:
         context = context.strip()
-        prompt = f"[INST]Given the following context, generate a relevant and humorous joke:\nContext: {context}\n\nGenerate a joke that is:[/INST]"
+        prompt =  f"""
+[INST]
+You are having a friendly conversation. Generate a humorous simple response based on the given context.
+
+### Requirements:
+1. Create a natural response that continues the conversation flow
+2. Use "you" instead of specific names
+3. Include both clever setup and punchline
+4. Must include one of these elements:
+   - Witty observation
+   - Playful teasing
+   - Ironic comparison
+   - Clever wordplay
+   - Situational humor
+5. Follow this structure:
+   - For one-liners: "Your [object/situation] is so [characteristic] that [humorous comparison]"
+   - For short exchanges: Just the setup and punchline
+   
+### Style Guide:
+- Keep tone light and friendly
+- Focus on the main humorous elements
+- Make it feel like a natural part of the dialogue
+- Avoid explaining the joke
+
+---
+
+### Context:
+{context}
+---
+
+Return only the simple humorous response, no additional text.
+[/INST]        
+"""
 
         inputs = self.joke_tokenizer(
             prompt,
@@ -246,7 +292,7 @@ class JokeChatSystem:
             joke_ids = self.joke_model.generate(
                 inputs['input_ids'],
                 attention_mask=inputs['attention_mask'],
-                max_new_tokens=50,
+                max_new_tokens=self.config['generation_config']['joke_max_length'],
                 num_return_sequences=self.config['training_config']['num_return_sequences'],
                 num_beams=self.config['generation_config']['joke_num_beams'],
                 do_sample=True,
@@ -255,14 +301,8 @@ class JokeChatSystem:
                 top_p=self.config['generation_config']['joke_top_p'],
                 pad_token_id=self.joke_tokenizer.pad_token_id,
                 eos_token_id=self.joke_tokenizer.eos_token_id,
-                no_repeat_ngram_size=self.config['generation_config']['joke_no_repeat_ngram_size']
+                no_repeat_ngram_size=self.config['generation_config']['joke_no_repeat_ngram_size'], 
+                repetition_penalty=2.0
             )
 
-        jokes = []
-        for ids in joke_ids:
-            joke = self.joke_tokenizer.decode(ids, skip_special_tokens=True)
-            joke = joke.split("[/INST]")[-1].strip()
-            if joke:  
-                jokes.append(joke)
-        
-        return jokes
+        return [self.joke_tokenizer.decode(ids, skip_special_tokens=True) for ids in joke_ids]

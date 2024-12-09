@@ -1,7 +1,9 @@
 #pip install -r requirements.txt
+import warnings
+warnings.filterwarnings("ignore")
+
 from common_utils import JokeChatSystem
 import time
-import json
 from typing import Dict, List, Any
 
 def test_dialogue_summary(system: JokeChatSystem, dialogue: str) -> str:
@@ -16,75 +18,56 @@ def test_joke_recommendation(system: JokeChatSystem, context: str) -> List[str]:
 
 def main():
     try:
-        system = JokeChatSystem('test_config.json')
+        system = JokeChatSystem('config.json')
     except FileNotFoundError:
         system = JokeChatSystem()
     
-    system.load_models()
+    system.load_models(epoch = 'best')
 
-    test_cases: List[Dict[str, str]] = [
-        {
+    test_case = {
             "dialogue": """
-            John: I've been trying to learn programming but it's so frustrating.
-            Mary: What specifically are you finding difficult?
-            John: Everything! The syntax, the logic, debugging... it's overwhelming.
-            Mary: Everyone feels that way at first. Maybe we could study together?
-            John: Really? That would be great! Thanks for offering to help.
-            """,
-            "reference_summary": "John is frustrated with learning programming. Mary offers to study together to help him."
-        },
-        {
-            "dialogue": """
-            Tom: How was your vacation in Hawaii?
-            Sarah: It was amazing! The beaches were beautiful and the food was incredible.
-            Tom: Did you try surfing?
-            Sarah: Yes! I took a lesson and managed to stand up on the board.
-            Tom: That's awesome! I've always wanted to learn.
-            Sarah: You should definitely try it. The instructors are really patient.
-            """,
-            "reference_summary": "Sarah shares her positive experience of her Hawaii vacation, including surfing lessons. Tom expresses interest in learning to surf."
-        },
-        {
-            "dialogue": """
-            Alex: Did you hear about the new coffee shop downtown?
-            Emma: No, what's special about it?
-            Alex: They have this unique brewing method and amazing pastries.
-            Emma: Sounds interesting! Want to check it out tomorrow?
-            Alex: Sure, let's meet there around 10?
-            Emma: Perfect, see you then!
-            """,
-            "reference_summary": "Alex tells Emma about a new coffee shop downtown. They plan to visit it together tomorrow at 10."
+You: How’s your new puppy doing?
+Taylor: She’s great! But she chewed up my slippers yesterday.
+You: Oh no, your favorite ones?
+Taylor: Yep, and now she’s walking around the house like she owns the place.
+You: Did she at least leave the other slipper intact?
+Taylor: Nope, it’s gone too. Guess I’m stuck with cold feet for a while.
+            """
         }
-    ]
 
-    print("\nRunning dialogue summary tests...")
-    for i, test_case in enumerate(test_cases, 1):
-        print(f"\nTest case {i}:")
-        print("Original dialogue:")
-        print(test_case["dialogue"])
-        
-        generated_summary = test_dialogue_summary(system, test_case["dialogue"])
-        print(f"\nGenerated summary: {generated_summary}")
-        print(f"Reference summary: {test_case['reference_summary']}")
-        
-        jokes = test_joke_recommendation(system, generated_summary)
-        print("\nGenerated jokes based on summary:")
-        for j, joke in enumerate(jokes, 1):
-            print(f"Joke {j}: {joke}")
-
-    print("\nTesting specific contexts...")
-    specific_contexts = [
-        "Someone struggling with computer programming",
-        "A beautiful day at the beach",
-        "A person learning to cook for the first time"
-    ]
+    print("\nRunning dialogue summary test...")
+    print("Original dialogue:")
+    print(test_case["dialogue"])
     
-    for context in specific_contexts:
-        print(f"\nContext: {context}")
-        jokes = test_joke_recommendation(system, context)
-        print("Generated jokes:")
-        for i, joke in enumerate(jokes, 1):
-            print(f"Joke {i}: {joke}")
+    generated_summary = test_dialogue_summary(system, test_case["dialogue"])
+    print(f"\nGenerated summary: {generated_summary}")
+    
+    jokes = test_joke_recommendation(system, generated_summary)
+    print("\nGenerated joke based on summary:")
+    print(f"Joke: {jokes[0]}")
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+"""
+You: How’s the bookshelf you were building? Did it turn out okay?
+Chris: Uh, not exactly.
+You: What do you mean?
+Chris: I followed the instructions perfectly, but now it leans more than the Tower of Pisa.
+You: Oh no! Did you fix it?
+Chris: Nope, I just called it “modern art” and left it as is.
+"""
+
+"""
+You: How’s your new puppy doing?
+Taylor: She’s great! But she chewed up my slippers yesterday.
+You: Oh no, your favorite ones?
+Taylor: Yep, and now she’s walking around the house like she owns the place.
+You: Did she at least leave the other slipper intact?
+Taylor: Nope, it’s gone too. Guess I’m stuck with cold feet for a while.
+"""

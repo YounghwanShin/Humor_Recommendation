@@ -1,17 +1,26 @@
-from common_utils import JokeChatSystem, DialogueDataset
-from datasets import load_dataset
+from src.utils.common_utils import JokeChatSystem, ContextJokeDataset
+import pandas as pd
 from torch.utils.data import DataLoader
 from transformers import get_linear_schedule_with_warmup
+import torch
 import torch.nn.utils
 from tqdm import tqdm
-import torch
 import os
 import logging
 import warnings
-from visualization import plot_training_losses, save_training_history
+from visualization.visualization import plot_training_losses, save_training_history
+import torch.cuda.amp as amp
+from bitsandbytes.optim import PagedAdamW
 
 warnings.filterwarnings("ignore")
 logging.getLogger("transformers").setLevel(logging.ERROR)
+
+def load_data(file_path: str) -> tuple:
+    print(f"Loading data from {file_path}")
+    df = pd.read_csv(file_path)
+    df = df.dropna(subset=['Context', 'Joke'])
+    print(f"Loaded {len(df)} samples")
+    return df['Context'].tolist(), df['Joke'].tolist()
 
 def evaluate_model(model, dataloader, device) -> float:
     model.eval()
@@ -37,12 +46,13 @@ def evaluate_model(model, dataloader, device) -> float:
     print(f"\nValidation Loss: {avg_val_loss:.4f}")
     return avg_val_loss
 
-def train_summarizer(system: JokeChatSystem, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
+def train_joke_model(system: JokeChatSystem, train_dataloader: DataLoader, val_dataloader: DataLoader) -> None:
     config = system.config
     save_interval = config['training_config']['save_interval']
+    grad_acc_steps = config['training_config']['gradient_accumulation_steps']
     
-    optimizer = torch.optim.AdamW(
-        system.summary_model.parameters(),
+    optimizer = PagedAdamW(
+        system.joke_model.parameters(),
         lr=float(config['training_config']['learning_rate']),
         weight_decay=0.01
     )
@@ -61,6 +71,7 @@ def train_summarizer(system: JokeChatSystem, train_dataloader: DataLoader, val_d
     best_val_loss = float('inf')
     early_stopping_counter = 0
     early_stopping_patience = config['training_config']['early_stopping_patience']
+    scaler = amp.GradScaler()
     
     print("\nStarting training...")
     print(f"Total epochs: {config['training_config']['num_epochs']}")
@@ -68,51 +79,60 @@ def train_summarizer(system: JokeChatSystem, train_dataloader: DataLoader, val_d
     print(f"Training steps per epoch: {len(train_dataloader)}")
     print(f"Validation steps per epoch: {len(val_dataloader)}")
     print(f"Batch size: {config['training_config']['batch_size']}")
+    print(f"Gradient accumulation steps: {grad_acc_steps}")
+    print(f"Effective batch size: {config['training_config']['batch_size'] * grad_acc_steps}")
     print(f"Learning rate: {config['training_config']['learning_rate']}")
     print(f"Device: {system.device}")
     
     for epoch in range(config['training_config']['num_epochs']):
         print(f"\nEpoch {epoch + 1}/{config['training_config']['num_epochs']}")
-        system.summary_model.train()
+        system.joke_model.train()
         total_loss = 0
         train_steps = 0
+        optimizer.zero_grad()
         
         progress_bar = tqdm(train_dataloader, desc='Training', leave=False)
-        for batch in progress_bar:
+        for step, batch in enumerate(progress_bar):
             input_ids = batch['input_ids'].to(system.device)
             attention_mask = batch['attention_mask'].to(system.device)
             labels = batch['labels'].to(system.device)
 
-            outputs = system.summary_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                labels=labels
-            )
+            with amp.autocast(dtype=torch.float32):
+                outputs = system.joke_model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels
+                )
 
-            loss = outputs.loss
-            total_loss += loss.item()
-            train_steps += 1
+                loss = outputs.loss / grad_acc_steps
+                total_loss += loss.item()
 
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(
-                system.summary_model.parameters(),
-                config['training_config']['max_grad_norm']
-            )
-            optimizer.step()
-            scheduler.step()
-            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            
+            if (step + 1) % grad_acc_steps == 0 or step == len(train_dataloader) - 1:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(
+                    system.joke_model.parameters(),
+                    config['training_config']['max_grad_norm']
+                )
+                
+                scaler.step(optimizer)
+                scaler.update()
+                scheduler.step()
+                optimizer.zero_grad()
+                train_steps += 1
 
-            current_lr = scheduler.get_last_lr()[0]
-            progress_bar.set_postfix({
-                'loss': f"{loss.item():.4f}",
-                'lr': f"{current_lr:.2e}"
-            })
+                current_lr = scheduler.get_last_lr()[0]
+                progress_bar.set_postfix({
+                    'loss': f"{(total_loss/train_steps):.4f}",
+                    'lr': f"{current_lr:.2e}"
+                })
 
         avg_train_loss = total_loss / train_steps
         print(f"\nAverage Training Loss: {avg_train_loss:.4f}")
 
         val_loss = evaluate_model(
-            system.summary_model,
+            system.joke_model,
             val_dataloader,
             system.device
         )
@@ -121,12 +141,12 @@ def train_summarizer(system: JokeChatSystem, train_dataloader: DataLoader, val_d
         val_losses.append(val_loss)
 
         if (epoch + 1) % save_interval == 0:
-            system.save_models(epoch=epoch, model_type='summary')
+            system.save_models(epoch=epoch, model_type='joke')
             print(f"Checkpoint saved at epoch {epoch + 1}")
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            system.save_models(epoch='best', model_type='summary')
+            system.save_models(epoch='best', model_type='joke')
             print(f"New best model saved! (Val Loss: {val_loss:.4f})")
             early_stopping_counter = 0
         else:
@@ -135,42 +155,43 @@ def train_summarizer(system: JokeChatSystem, train_dataloader: DataLoader, val_d
             
             if early_stopping_counter >= early_stopping_patience:
                 print("\nEarly stopping triggered!")
-                system.save_models(model_type='summary')
+                system.save_models(model_type='joke')
                 break
     
     if epoch == config['training_config']['num_epochs'] - 1:
-        system.save_models(model_type='summary')
+        system.save_models(model_type='joke')
         
-    plot_training_losses(train_losses, val_losses, 'summary', 'training_plots')
-    save_training_history(train_losses, val_losses, 'summary', 'training_plots')
+    plot_training_losses(train_losses, val_losses, 'joke', 'training_plots')
+    save_training_history(train_losses, val_losses, 'joke', 'training_plots')
     print("\nTraining completed!")
 
 def main():
-    print("Loading DialogSum dataset...")
-    dialogsum_dataset = load_dataset('knkarthick/dialogsum')
-
-    print("\nInitializing system...")
+    print("Initializing system...")
     system = JokeChatSystem()
 
-    print("\nPreparing datasets...")
-    train_dataset = DialogueDataset(
-        dialogsum_dataset['train']['dialogue'],
-        dialogsum_dataset['train']['summary'],
-        system.summary_tokenizer,
+    print("\nLoading training and validation data...")
+    train_contexts, train_jokes = load_data('data/ctx_joke_tuning_data/train_data.csv')
+    val_contexts, val_jokes = load_data('data/ctx_joke_tuning_data/val_data.csv')
+
+    train_dataset = ContextJokeDataset(
+        train_contexts,
+        train_jokes,
+        system.joke_tokenizer,
         max_length=system.config['training_config']['max_source_length']
     )
     
+    val_dataset = ContextJokeDataset(
+        val_contexts,
+        val_jokes,
+        system.joke_tokenizer,
+        max_length=system.config['training_config']['max_source_length']
+    )
+
+    print("\nPreparing data loaders...")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=system.config['training_config']['batch_size'],
         shuffle=True
-    )
-
-    val_dataset = DialogueDataset(
-        dialogsum_dataset['validation']['dialogue'],
-        dialogsum_dataset['validation']['summary'],
-        system.summary_tokenizer,
-        max_length=system.config['training_config']['max_source_length']
     )
     
     val_dataloader = DataLoader(
@@ -181,7 +202,7 @@ def main():
     print(f"\nTrain samples: {len(train_dataset)}")
     print(f"Validation samples: {len(val_dataset)}")
 
-    train_summarizer(system, train_dataloader, val_dataloader)
+    train_joke_model(system, train_dataloader, val_dataloader)
 
 if __name__ == "__main__":
     main()

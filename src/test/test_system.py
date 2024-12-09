@@ -2,7 +2,7 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-from common_utils import JokeChatSystem
+from src.utils.common_utils import JokeChatSystem
 import time
 from typing import Dict, List, Any
 
@@ -17,10 +17,7 @@ def test_joke_recommendation(system: JokeChatSystem, context: str) -> List[str]:
     return jokes
 
 def main():
-    try:
-        system = JokeChatSystem('config.json')
-    except FileNotFoundError:
-        system = JokeChatSystem()
+    system = JokeChatSystem()
     
     system.load_models(epoch = 'best')
 

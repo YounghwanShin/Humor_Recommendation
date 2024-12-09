@@ -89,7 +89,7 @@ class ContextJokeDataset(Dataset):
         }
 
 class JokeChatSystem:
-    def __init__(self, config_path: str = 'config.json'):
+    def __init__(self, config_path: str = 'config\config.json'):
         self.config = self._load_config(config_path)
         self._setup_directories()
         self._initialize_models()

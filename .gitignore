@@ -17,6 +17,8 @@ processed_data
 ctx_joke_tuning_data
 data_code_file
 training_plots
+data
+visualization\training_plots
 
 # Distribution / packaging
 .Python

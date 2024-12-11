@@ -20,6 +20,13 @@ training_plots
 data
 visualization\training_plots
 
+joke_evaluation_gpt_4o_mini.json
+joke_evaluation_results.json
+summary_evaluation_bart-large-cnn.json
+summary_evaluation_gpt-4o-mini.json
+summary_evaluation_pegasus-large.json
+test_results.json
+
 # Distribution / packaging
 .Python
 build/

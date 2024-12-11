@@ -1,4 +1,4 @@
-from src.utils.common_utils import JokeChatSystem, ContextJokeDataset
+from utils.common_utils import JokeChatSystem, ContextJokeDataset
 import pandas as pd
 from torch.utils.data import DataLoader
 from transformers import get_linear_schedule_with_warmup

@@ -1,7 +1,7 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-from src.utils.common_utils import JokeChatSystem
+from utils.common_utils import JokeChatSystem
 from datasets import load_dataset
 from tqdm import tqdm
 from rouge_score import rouge_scorer

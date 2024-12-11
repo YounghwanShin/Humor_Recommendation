@@ -31,10 +31,11 @@
     "summary_length_penalty": 1.0,
     "summary_num_beams": 4,
     "summary_no_repeat_ngram_size": 3,
-    "joke_max_length": 100, 
-    "joke_num_beams": 3,           
+    "max_source_length": 600,
+    "joke_max_length": 50, 
+    "joke_num_beams": 5,           
     "joke_temperature": 0.9,     
-    "joke_no_repeat_ngram_size": 2,
+    "joke_no_repeat_ngram_size": 3,
     "joke_top_k": 40,           
     "joke_top_p": 0.95    
     }

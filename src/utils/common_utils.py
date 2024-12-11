@@ -89,7 +89,7 @@ class ContextJokeDataset(Dataset):
         }
 
 class JokeChatSystem:
-    def __init__(self, config_path: str = 'config\config.json'):
+    def __init__(self, config_path: str = os.path.join('config', 'config.json')):
         self.config = self._load_config(config_path)
         self._setup_directories()
         self._initialize_models()
@@ -246,7 +246,7 @@ class JokeChatSystem:
 
     def recommend_joke(self, context: str) -> List[str]:
         context = context.strip()
-        prompt =  f"""
+        prompt = f"""
 [INST]
 You are having a friendly conversation. Generate a humorous simple response based on the given context.
 
@@ -261,8 +261,8 @@ You are having a friendly conversation. Generate a humorous simple response base
    - Clever wordplay
    - Situational humor
 5. Follow this structure:
-   - For one-liners: "Your [object/situation] is so [characteristic] that [humorous comparison]"
-   - For short exchanges: Just the setup and punchline
+   - Witty one-liner: A single, clever sentence that delivers humor ex) I told my wife she was drawing her eyebrows too high. She looked surprised.
+   - A condensed setup and punchline in one sentence ex) Why don’t scientists trust atoms? Because they make up everything!
    
 ### Style Guide:
 - Keep tone light and friendly
@@ -276,15 +276,15 @@ You are having a friendly conversation. Generate a humorous simple response base
 {context}
 ---
 
-Return only the simple humorous response, no additional text.
-[/INST]        
+Return only simple humorous response, no additional text.
+[/INST]
 """
 
         inputs = self.joke_tokenizer(
             prompt,
             padding=True,
             truncation=True,
-            max_length=self.config['training_config']['max_source_length'],
+            max_length=self.config['generation_config']['max_source_length'],
             return_tensors='pt'
         ).to(self.device)
 
@@ -304,5 +304,5 @@ Return only the simple humorous response, no additional text.
                 no_repeat_ngram_size=self.config['generation_config']['joke_no_repeat_ngram_size'], 
                 repetition_penalty=2.0
             )
-
-        return [self.joke_tokenizer.decode(ids, skip_special_tokens=True) for ids in joke_ids]
+        jokes = [self.joke_tokenizer.decode(ids, skip_special_tokens=True) for ids in joke_ids]
+        return jokes[0].split("[/INST]")[-1].strip()

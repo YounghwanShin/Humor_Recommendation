@@ -2,7 +2,7 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-from src.utils.common_utils import JokeChatSystem
+from utils.common_utils import JokeChatSystem
 import time
 from typing import Dict, List, Any
 
@@ -21,27 +21,24 @@ def main():
     
     system.load_models(epoch = 'best')
 
-    test_case = {
-            "dialogue": """
-You: How’s your new puppy doing?
-Taylor: She’s great! But she chewed up my slippers yesterday.
-You: Oh no, your favorite ones?
-Taylor: Yep, and now she’s walking around the house like she owns the place.
-You: Did she at least leave the other slipper intact?
-Taylor: Nope, it’s gone too. Guess I’m stuck with cold feet for a while.
+    test_case = """
+You: How’s the bookshelf you were building? Did it turn out okay?
+Chris: Uh, not exactly.
+You: What do you mean?
+Chris: I followed the instructions perfectly, but now it leans more than the Tower of Pisa.
+You: Oh no! Did you fix it?
+Chris: Nope, I just called it “modern art” and left it as is.
             """
-        }
 
-    print("\nRunning dialogue summary test...")
     print("Original dialogue:")
-    print(test_case["dialogue"])
+    print(test_case)
     
-    generated_summary = test_dialogue_summary(system, test_case["dialogue"])
+    generated_summary = test_dialogue_summary(system, test_case)
     print(f"\nGenerated summary: {generated_summary}")
     
     jokes = test_joke_recommendation(system, generated_summary)
     print("\nGenerated joke based on summary:")
-    print(f"Joke: {jokes[0]}")
+    print(jokes)
 
 if __name__ == "__main__":
     main()

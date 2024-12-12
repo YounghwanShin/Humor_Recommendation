@@ -157,7 +157,7 @@ def main():
         dialogsum_dataset['train']['dialogue'],
         dialogsum_dataset['train']['summary'],
         system.summary_tokenizer,
-        max_length=system.config['training_config']['max_source_length']
+        max_length=system.config['training_config']['max_summary_source_length']
     )
     
     train_dataloader = DataLoader(
@@ -170,7 +170,7 @@ def main():
         dialogsum_dataset['validation']['dialogue'],
         dialogsum_dataset['validation']['summary'],
         system.summary_tokenizer,
-        max_length=system.config['training_config']['max_source_length']
+        max_length=system.config['training_config']['max_summary_source_length']
     )
     
     val_dataloader = DataLoader(

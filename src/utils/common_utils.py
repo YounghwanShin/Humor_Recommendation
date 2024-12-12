@@ -70,7 +70,36 @@ class ContextJokeDataset(Dataset):
         context = self.contexts[idx].strip()
         joke = self.jokes[idx].strip()
         
-        prompt = f"[INST]Given the following context, generate a relevant and humorous joke:\nContext: {context}\n\nGenerate a joke that is:[/INST]{joke}"
+        messages = [
+            {"role": "system", "content": "You are a witty assistant that generates humorous responses."},
+            {"role": "user", "content": f"""Generate a humorous response for this context.
+
+    Requirement
+    1. Create a natural response that continues the conversation flow
+    2. Include both clever setup and punchline
+    3. Must include one of these elements:
+    - Witty observation, Playful teasing, Ironic comparison, Clever wordplay, Situational humor
+    4. Follow this structure:
+    - A clever one-liner
+    - A short setup with punchline
+    5. Style Guide:
+    - Keep tone light and friendly
+    - Focus on the main humorous elements
+    - Make it feel like a natural part of the dialogue
+    - Avoid explaining the joke
+    6. Use "you" instead of specific names
+
+    Context: {context}
+
+    Please generate a natural and humorous concise joke that fits the context and requirements above."""},
+            {"role": "assistant", "content": joke}
+        ]
+        
+        prompt = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
         
         encodings = self.tokenizer(
             prompt,
@@ -87,7 +116,7 @@ class ContextJokeDataset(Dataset):
                 encodings['input_ids'] == self.tokenizer.pad_token_id, -100
             )
         }
-
+    
 class JokeChatSystem:
     def __init__(self, config_path: str = os.path.join('config', 'config.json')):
         self.config = self._load_config(config_path)
@@ -127,8 +156,7 @@ class JokeChatSystem:
             padding_side="left",
             token=hf_token
         )
-        self.joke_tokenizer.pad_token = self.joke_tokenizer.eos_token
-
+        
         self.joke_model = AutoModelForCausalLM.from_pretrained(
             self.config['model_config']['joke_model_name'],
             quantization_config=bnb_config,
@@ -244,44 +272,40 @@ class JokeChatSystem:
 
         return self.summary_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
 
-    def recommend_joke(self, context: str) -> List[str]:
+    def recommend_joke(self, context: str) -> str:
         context = context.strip()
-        prompt = f"""
-[INST]
-You are having a friendly conversation. Generate a humorous simple response based on the given context.
+        messages = [
+            {"role": "system", "content": "You are a witty assistant that generates humorous responses."},
+            {"role": "user", "content": f"""Generate a humorous response for this context.
 
-### Requirements:
-1. Create a natural response that continues the conversation flow
-2. Use "you" instead of specific names
-3. Include both clever setup and punchline
-4. Must include one of these elements:
-   - Witty observation
-   - Playful teasing
-   - Ironic comparison
-   - Clever wordplay
-   - Situational humor
-5. Follow this structure:
-   - Witty one-liner: A single, clever sentence that delivers humor ex) I told my wife she was drawing her eyebrows too high. She looked surprised.
-   - A condensed setup and punchline in one sentence ex) Why don’t scientists trust atoms? Because they make up everything!
-   
-### Style Guide:
-- Keep tone light and friendly
-- Focus on the main humorous elements
-- Make it feel like a natural part of the dialogue
-- Avoid explaining the joke
+    Requirement
+    1. Create a natural response that continues the conversation flow
+    2. Include both clever setup and punchline
+    3. Must include one of these elements:
+    - Witty observation, Playful teasing, Ironic comparison, Clever wordplay, Situational humor
+    4. Follow this structure:
+    - A clever one-liner
+    - A short setup with punchline
+    5. Style Guide:
+    - Keep tone light and friendly
+    - Focus on the main humorous elements
+    - Make it feel like a natural part of the dialogue
+    - Avoid explaining the joke
+    6. Use "you" instead of specific names
 
----
+    Context: {context}
 
-### Context:
-{context}
----
-
-Return only simple humorous response, no additional text.
-[/INST]
-"""
-
+    Please generate a natural and humorous concise joke that fits the context and requirements above."""}
+        ]
+        
+        text = self.joke_tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        
         inputs = self.joke_tokenizer(
-            prompt,
+            text,
             padding=True,
             truncation=True,
             max_length=self.config['generation_config']['max_source_length'],
@@ -289,9 +313,8 @@ Return only simple humorous response, no additional text.
         ).to(self.device)
 
         with torch.no_grad():
-            joke_ids = self.joke_model.generate(
-                inputs['input_ids'],
-                attention_mask=inputs['attention_mask'],
+            generated_ids = self.joke_model.generate(
+                **inputs,
                 max_new_tokens=self.config['generation_config']['joke_max_length'],
                 num_return_sequences=self.config['training_config']['num_return_sequences'],
                 num_beams=self.config['generation_config']['joke_num_beams'],
@@ -299,10 +322,11 @@ Return only simple humorous response, no additional text.
                 temperature=self.config['generation_config']['joke_temperature'],
                 top_k=self.config['generation_config']['joke_top_k'],
                 top_p=self.config['generation_config']['joke_top_p'],
-                pad_token_id=self.joke_tokenizer.pad_token_id,
-                eos_token_id=self.joke_tokenizer.eos_token_id,
                 no_repeat_ngram_size=self.config['generation_config']['joke_no_repeat_ngram_size'], 
                 repetition_penalty=2.0
             )
-        jokes = [self.joke_tokenizer.decode(ids, skip_special_tokens=True) for ids in joke_ids]
-        return jokes[0].split("[/INST]")[-1].strip()
+            generated_ids = [
+                output_ids[len(input_ids):] for input_ids, output_ids in zip(inputs.input_ids, generated_ids)
+            ]
+        
+        return self.joke_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]

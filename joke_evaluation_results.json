@@ -1,68 +1,68 @@
 {
   "metrics": {
     "reference_based": {
-      "bleu": 25.941807523237596,
-      "bleu_1": 87.5,
-      "bleu_2": 47.82608695652174,
-      "bleu_3": 22.727272727272727,
-      "bleu_4": 4.761904761904762,
-      "rouge1_f": 0.08305138974736209,
-      "rouge2_f": 0.00537450392970101,
-      "rougeL_f": 0.07098270431409305,
-      "rouge1_p": 0.08526906267693829,
-      "rouge2_p": 0.005382437928237513,
-      "rougeL_p": 0.07332732794361975,
-      "rouge1_r": 0.09056482918048571,
-      "rouge2_r": 0.0058894948810958945,
-      "rougeL_r": 0.07723091173814035
+      "bleu": 12.556112175953851,
+      "bleu_1": 80.85106382978724,
+      "bleu_2": 30.434782608695652,
+      "bleu_3": 8.88888888888889,
+      "bleu_4": 1.1363636363636365,
+      "rouge1_f": 0.1055340986961303,
+      "rouge2_f": 0.011050632134762414,
+      "rougeL_f": 0.09007400785364617,
+      "rouge1_p": 0.09855484127263835,
+      "rouge2_p": 0.009993404501169015,
+      "rougeL_p": 0.08454310495170281,
+      "rouge1_r": 0.13180171297163218,
+      "rouge2_r": 0.014414522366414112,
+      "rougeL_r": 0.11216415175162231
     },
-    "perplexity": 61.48173033475876,
-    "context_similarity": 0.41190975983976386,
-    "reference_similarity": 0.10394881846441421
+    "perplexity": 74.72791680270021,
+    "context_similarity": 0.2700650963451971,
+    "reference_similarity": 0.24884399208328073
   },
-  "avg_generation_time": 2.095395029783249,
-  "num_samples": 1500,
-  "successful_generations": 800,
+  "avg_generation_time": 0.8879153296632587,
+  "num_samples": 800,
+  "successful_generations": 795,
   "example_generations": [
     {
-      "context": "While talking about accessibility, someone humorously explains how blind people locate Braille signs.",
-      "reference": "What happened to the number 10? It got stuck in 9/11",
-      "prediction": "Why do blind people love Braille? Because if it were written in sight, they'd be squinting to read it!",
-      "perplexity": 42.53702163696289,
-      "context_similarity": 0.7589907646179199,
-      "reference_similarity": 0.09875161200761795
+      "context": "While discussing recent news about church leadership changes, friends express surprise at the Pope's potential resignation and share opinions.",
+      "reference": "Did you hear that the Pope might quit? I guess there's just not enough altar boys to go around in the Vatican",
+      "prediction": "Friends can't seem to wrap their heads around the fact that Pope Francis might be stepping down from his position as the leader of the Catholic Church. Apparently, they're still stuck in the 90s when it comes to fashion trends.",
+      "perplexity": 10.919561386108398,
+      "context_similarity": 0.4680526852607727,
+      "reference_similarity": 0.48678267002105713
     },
     {
-      "context": "A serious topic takes a dark twist with a shocking comparison of unpleasant surprises in fruit.",
-      "reference": "What is the difference between a black person and a pizza? A pizza can feed a family of 4.",
-      "prediction": "Answer: \"Well, at least we know we won't be getting a pleasant surprise in our fruit basket anytime soon, right?\"",
-      "perplexity": 25.114107131958008,
-      "context_similarity": 0.49206170439720154,
-      "reference_similarity": 0.04039198160171509
+      "context": "Friends are sharing stories about their childhood and how their parents influenced their upbringing, sparking laughter and nostalgia.",
+      "reference": "What did the grapes say to their parents after they put them into a nursing home? Thanks for raisin us",
+      "prediction": "Remember that time when your dad tried to teach you how to tie a tie with those ridiculous knots he used to make? - Friend 1 (laughing)",
+      "perplexity": 49.107147216796875,
+      "context_similarity": 0.26371607184410095,
+      "reference_similarity": 0.20034140348434448
     },
     {
-      "context": "In a whimsical conversation about business ventures, someone shares their disappointment about closing a podiatry clinic in Paris.",
-      "reference": "There are only two reasons to hate gay marriage. Either you're dumb or you're secretly worried that dicks are delicious.",
-      "prediction": "Why did the Paris-based podiatrist decide to close his clinic? Because he couldn",
-      "perplexity": 46.22466278076172,
-      "context_similarity": 0.6342275142669678,
-      "reference_similarity": 0.07448023557662964
+      "context": "Friends are sharing quirky animal facts while discussing their favorite childhood snacks, leading to lighthearted comparisons.",
+      "reference": "What do... A grape and a bunny rabbit have in common? They're both purple. Except for the bunny rabbit.",
+      "prediction": "Why did the chicken cross the playground? To get to the other slide!",
+      "perplexity": 161.44993591308594,
+      "context_similarity": 0.21294957399368286,
+      "reference_similarity": 0.2418859302997589
     },
     {
-      "context": "While discussing kissing techniques, someone humorously mentioned closing their eyes to avoid pepper spray.",
-      "reference": "How do you guys think the Germans will do in the Olympics this year? Not too well considering they can't finish a race.",
-      "prediction": "Answer: \"Well, at least you won't get any pepper spray in your eyes while kissing now, am I right?\"",
-      "perplexity": 33.081050872802734,
-      "context_similarity": 0.6853344440460205,
-      "reference_similarity": -0.032059840857982635
+      "context": "Friends are reminiscing about late-night texts and how their nighttime routines have changed as they’ve gotten older.",
+      "reference": "You know you're old when you get a \"You up?\" text.... And it's 8:25 p.m.",
+      "prediction": "Remember when we used to text at 3 am? Now, I can barely get out of bed in the morning.",
+      "perplexity": 28.120161056518555,
+      "context_similarity": 0.5304766297340393,
+      "reference_similarity": 0.6407777070999146
     },
     {
-      "context": "In a conversation about bureaucracy, someone jokes that it takes two bureaucrats to change a light bulb, one to assure it’s being done and another to screw it in.",
-      "reference": "Why do robots make bad boyfriends? They just screw, nut, then bolt.",
-      "prediction": "Why did the electron win an award? Because it collected enough energy to emit a photon.",
-      "perplexity": 62.63841247558594,
-      "context_similarity": 0.09540455043315887,
-      "reference_similarity": 0.0793708860874176
+      "context": "During a casual gathering, friends share funny parenting stories, discussing unique names they considered for their kids.",
+      "reference": "Think I might change my kids name to Worldstar... So whenever he is in a fight people would be cheering for him.",
+      "prediction": "Why did the exhausted parent cross the road? To get to the other exhaustion!",
+      "perplexity": 238.40283203125,
+      "context_similarity": 0.24965471029281616,
+      "reference_similarity": 0.1330086588859558
     }
   ]
 }

@@ -19,6 +19,7 @@ data_code_file
 training_plots
 data
 visualization\training_plots
+문서화
 
 joke_evaluation_gpt_4o_mini.json
 joke_evaluation_results.json

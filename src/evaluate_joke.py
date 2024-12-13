@@ -170,16 +170,18 @@ def evaluate_joke_model(system: JokeChatSystem, test_data: pd.DataFrame, num_sam
    predictions = []
    references = []
    contexts = []
+   last_utterances = []
    generation_times = []
 
    print(f"\nGenerating jokes for {num_samples} samples...")
    for i in tqdm(range(num_samples)):
        try:
            context = test_data.iloc[i]['Context']
+           last_utterance = test_data.iloc[i]['Last_Utterance']
            reference = test_data.iloc[i]['Joke']
            
            start_time = time.time()
-           prediction = system.recommend_joke(context)
+           prediction = system.recommend_joke(context, last_utterance)
            generation_time = time.time() - start_time
            
            if not evaluator.is_valid_joke(prediction):
@@ -189,6 +191,7 @@ def evaluate_joke_model(system: JokeChatSystem, test_data: pd.DataFrame, num_sam
            predictions.append(prediction)
            references.append(reference)
            contexts.append(context)
+           last_utterances.append(last_utterance)
            generation_times.append(generation_time)
            
        except Exception as e:
@@ -205,16 +208,20 @@ def evaluate_joke_model(system: JokeChatSystem, test_data: pd.DataFrame, num_sam
    reference_similarities = evaluator.calculate_semantic_similarity(references, predictions)
    reference_metrics = evaluator.calculate_reference_metrics(predictions, references)
    
+   last_utterance_similarities = evaluator.calculate_semantic_similarity(last_utterances, predictions)
+   
    valid_perplexities = [p for p in perplexities if p != float('inf')]
    mean_perplexity = float(np.mean(valid_perplexities)) if valid_perplexities else float('inf')
    mean_context_similarity = float(np.mean(context_similarities))
    mean_reference_similarity = float(np.mean(reference_similarities))
+   mean_last_utterance_similarity = float(np.mean(last_utterance_similarities))
    
    results = {
        'metrics': {
            'reference_based': reference_metrics,
            'perplexity': mean_perplexity,
            'context_similarity': mean_context_similarity,
+           'last_utterance_similarity': mean_last_utterance_similarity,
            'reference_similarity': mean_reference_similarity
        },
        'avg_generation_time': float(np.mean(generation_times)),
@@ -227,17 +234,19 @@ def evaluate_joke_model(system: JokeChatSystem, test_data: pd.DataFrame, num_sam
    for i in range(num_examples):
        results['example_generations'].append({
            'context': contexts[i],
+           'last_utterance': last_utterances[i],
            'reference': references[i],
            'prediction': predictions[i],
            'perplexity': float(perplexities[i]),
            'context_similarity': float(context_similarities[i]),
+           'last_utterance_similarity': float(last_utterance_similarities[i]),
            'reference_similarity': float(reference_similarities[i])
        })
    
    return results
 
 def main():
-   test_data = pd.read_csv('/workspace/data/ctx_joke_tuning_data/test_data.csv')
+   test_data = pd.read_csv('data/ctx_joke_tuning_data/test_data.csv')
    system = JokeChatSystem()
    system.load_models(epoch='best', model_type='joke')
    
@@ -256,7 +265,7 @@ def main():
    print(f"Context Similarity: {results['metrics']['context_similarity']:.4f}")
    print(f"Reference Similarity: {results['metrics']['reference_similarity']:.4f}")
    
-   output_file = 'joke_evaluation_results.json'
+   output_file = 'src\summary_eval_results\joke_evaluation_Qwen2.5_1.5B_instruct_ours.json'
    with open(output_file, 'w', encoding='utf-8') as f:
        json.dump(results, f, ensure_ascii=False, indent=2)
    print(f"\nResults saved to {output_file}")

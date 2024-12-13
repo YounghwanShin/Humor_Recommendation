@@ -5,17 +5,22 @@ from transformers import (
     PegasusForConditionalGeneration,
     AutoModelForCausalLM,
     BartForConditionalGeneration,
-    PegasusTokenizer
+    PegasusTokenizer,
+    BitsAndBytesConfig
+)
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    prepare_model_for_kbit_training
 )
 
 class BaselineModel:
     def __init__(self, model_name: str, task: str, hf_token: str = None):
         self.model_name = model_name
-        self.task = task  # 'summary' or 'joke'
+        self.task = task  
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.hf_token = hf_token
-        # Update to include GPT models
-        self.is_decoder_only = "llama" in model_name.lower() or "gpt" in model_name.lower()
+        self.is_decoder_only = any(name in model_name.lower() for name in ["llama", "gpt", "qwen"])
         self._initialize_model()
         
     def _initialize_model(self):
@@ -27,26 +32,47 @@ class BaselineModel:
         if "bart" in self.model_name.lower():
             self.model = BartForConditionalGeneration.from_pretrained(self.model_name).to(self.device)
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        elif "llama" in self.model_name.lower():
+        elif "qwen" in self.model_name.lower():
+
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float32,
+                bnb_4bit_use_double_quant=True,
+            )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
+                quantization_config=bnb_config,
                 device_map="auto",
-                torch_dtype=torch.float16,
+                trust_remote_code=True,
                 token=self.hf_token
             )
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, token=self.hf_token)
+            self.model = prepare_model_for_kbit_training(self.model)
+
+            lora_config = LoraConfig(
+                r=16,
+                lora_alpha=32,
+                lora_dropout=0.05,
+                bias="none",
+                task_type="CAUSAL_LM",
+                target_modules=["q_proj", "v_proj", "k_proj", "o_proj"]
+            )
+            
+            self.model = get_peft_model(self.model, lora_config)
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                trust_remote_code=True,
+                padding_side="left",
+                token=self.hf_token
+            )
         elif "pegasus" in self.model_name.lower():
             self.model = PegasusForConditionalGeneration.from_pretrained(self.model_name).to(self.device)
             self.tokenizer = PegasusTokenizer.from_pretrained(self.model_name)
                 
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
-
+            
     def _post_process_decoder_output(self, output: str, task: str) -> str:
-        """
-        후처리 함수: 디코더 모델의 출력을 정제합니다.
-        """
-        # 불필요한 시스템 프롬프트나 메타 텍스트 제거
         if "Assistant:" in output:
             output = output.split("Assistant:")[-1]
         if "System:" in output:
@@ -54,12 +80,10 @@ class BaselineModel:
         if "Human:" in output:
             output = output.split("Human:")[0]
             
-        # 줄바꿈 및 여백 정리
         output = output.strip()
         output = ' '.join(output.split())
         
         if task == "summary":
-            # 요약 특화 후처리
             unwanted_prefixes = [
                 "Here's a summary:",
                 "Summary:",
@@ -71,7 +95,6 @@ class BaselineModel:
                     output = output[len(prefix):].strip()
                     
         elif task == "joke":
-            # 농담 특화 후처리
             unwanted_prefixes = [
                 "Here's a joke:",
                 "Joke:",
@@ -82,7 +105,6 @@ class BaselineModel:
                 if output.startswith(prefix):
                     output = output[len(prefix):].strip()
                     
-            # 설명이나 메타 코멘트 제거
             if "This is funny because" in output:
                 output = output.split("This is funny because")[0].strip()
                 
@@ -105,6 +127,31 @@ class BaselineModel:
             except Exception as e:
                 print(f"Error with GPT-4o-mini: {str(e)}")
                 return ""
+            
+        if "qwen" in self.model_name.lower():
+            messages = [
+                {"role": "system", "content": "Summarize the following dialogue concisely:"},
+                {"role": "user", "content": dialogue}
+            ]
+            text = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+            inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+            
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=150,
+                min_new_tokens=30,
+                num_beams=4,
+                length_penalty=2.0,
+                early_stopping=True
+            )
+            
+            output_ids = [outputs[0][len(inputs.input_ids[0]):]]
+            output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+            return self._post_process_decoder_output(output, "summary")
             
         inputs = self.tokenizer(
             dialogue, 
@@ -129,26 +176,29 @@ class BaselineModel:
             output = self._post_process_decoder_output(output, "summary")
         return output
 
-    def generate_joke(self, context: str) -> str:
+    def generate_joke(self, context: str, last_utterance: str) -> str:
         if self.is_api:
             try:
                 response = openai.OpenAI().chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[
-                        {"role": "system", "content": """You are having a friendly conversation. Generate a humorous simple response based on the given context.
-                        Requirements:
-                        1. Create a natural response that continues the conversation flow
-                        2. Use "you" instead of specific names
-                        3. Include both clever setup and punchline
-                        4. Must include one of these elements:
-                        - Witty observation
-                        - Playful teasing
-                        - Ironic comparison
-                        - Clever wordplay
-                        - Situational humor"""},
-                        {"role": "user", "content": context}
+                        {"role": "system", "content": """You are a witty assistant that generates humorous responses based on conversation context. 
+    Your responses should:
+    - Flow naturally with the conversation
+    - Include witty observations, playful teasing, ironic comparisons, clever wordplay, or situational humor
+    - Be concise and focused on the main humorous elements
+    - Keep a light and friendly tone
+    - Feel like a natural part of the dialogue
+    - Use "you" instead of specific names
+    - NOT explain the joke and NOT include metadata"""},
+                        {"role": "user", "content": f"""Given the conversation context and the last message, create a humorous response.
+
+    Context: {context}
+    Last message: {last_utterance}
+
+    Generate a natural and humorous response that continues this conversation."""}
                     ],
-                    max_tokens=100,
+                    max_tokens=500,
                     temperature=0.9
                 )
                 output = response.choices[0].message.content.strip()
@@ -157,13 +207,47 @@ class BaselineModel:
                 print(f"Error with GPT-3.5: {str(e)}")
                 return ""
             
-        prompt = f"""Given this context: {context}
-        Generate a humorous response that is natural and includes clever wordplay or situational humor.
-        Keep it concise and witty."""
+        if "qwen" in self.model_name.lower():
+            messages = [
+                {"role": "system", "content": "You are a witty assistant that generates humorous responses based on conversation context."},
+                {"role": "user", "content": f"""Given the conversation context and the last message, create a humorous response.
+
+Context: {context}
+Last message: {last_utterance}
+
+Generate a natural and humorous response that continues this conversation."""}
+            ]
+            text = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+            inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+            
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=100,
+                num_beams=5,
+                temperature=0.9,
+                top_p=0.9,
+                do_sample=True,
+                no_repeat_ngram_size=2
+            )
+            
+            output_ids = [outputs[0][len(inputs.input_ids[0]):]]
+            output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+            return self._post_process_decoder_output(output, "joke")
+            
+        prompt = f"""Given the conversation context and the last message, create a humorous response.
+
+    Context: {context}
+    Last message: {last_utterance}
+
+    Generate a natural and humorous response that continues this conversation."""
         
         inputs = self.tokenizer(
             prompt,
-            max_length=2000,
+            max_length=256, 
             truncation=True,
             padding='max_length',
             return_tensors='pt'

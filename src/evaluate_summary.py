@@ -42,7 +42,6 @@ def calculate_rouge_scores(predictions: List[str], references: List[str]) -> Dic
         scores['rouge2_r'].append(score['rouge2'].recall)
         scores['rougeL_r'].append(score['rougeL'].recall)
     
-    # Calculate means
     results = {}
     for key in scores:
         results[key] = float(np.mean(scores[key]))
@@ -50,23 +49,20 @@ def calculate_rouge_scores(predictions: List[str], references: List[str]) -> Dic
     return results
 
 def calculate_bleu_score(predictions: List[str], references: List[str]) -> Dict[str, float]:
-    # BLEU expects a list of references for each prediction
     refs_list = [[ref] for ref in references]
     
-    # Initialize BLEU scorer
-    bleu = BLEU(tokenize='intl')  # Using international tokenization
+    bleu = BLEU(tokenize='intl')  
     
-    # Calculate BLEU score
     score = bleu.corpus_score(predictions, refs_list)
     
     return {
-        'bleu': float(score.score),  # Overall BLEU score
-        'bleu_1': float(score.precisions[0]),  # BLEU-1
-        'bleu_2': float(score.precisions[1]),  # BLEU-2
-        'bleu_3': float(score.precisions[2]),  # BLEU-3
-        'bleu_4': float(score.precisions[3]),  # BLEU-4
-        'brevity_penalty': float(score.bp),  # Brevity penalty
-        'length_ratio': float(score.sys_len / score.ref_len)  # System/reference length ratio
+        'bleu': float(score.score),  
+        'bleu_1': float(score.precisions[0]),
+        'bleu_2': float(score.precisions[1]),
+        'bleu_3': float(score.precisions[2]),
+        'bleu_4': float(score.precisions[3]),
+        'brevity_penalty': float(score.bp),  
+        'length_ratio': float(score.sys_len / score.ref_len)  
     }
 
 def test_model(system: JokeChatSystem, test_dataset: Any, num_samples: int = None) -> Dict[str, float]:
@@ -93,16 +89,12 @@ def test_model(system: JokeChatSystem, test_dataset: Any, num_samples: int = Non
         references.append(reference)
         times.append(end_time - start_time)
     
-    # Calculate ROUGE scores
     rouge_scores = calculate_rouge_scores(predictions, references)
     
-    # Calculate BLEU scores
     bleu_scores = calculate_bleu_score(predictions, references)
     
-    # Calculate average generation time
     avg_time = np.mean(times)
     
-    # Prepare results
     results = {
         'metrics': {
             'rouge': rouge_scores,
@@ -113,7 +105,6 @@ def test_model(system: JokeChatSystem, test_dataset: Any, num_samples: int = Non
         'example_predictions': []
     }
     
-    # Add some example predictions
     num_examples = min(5, num_samples)
     for i in range(num_examples):
         results['example_predictions'].append({
@@ -149,21 +140,16 @@ def main():
     print("\nLoading best model...")
     system.load_models(epoch='best', model_type='summary')
     
-    # Test the model
     results = test_model(system, test_dataset)
     
-    # Print results
     print("\nTest Results:")
     print(f"Number of samples tested: {results['num_samples']}")
     print(f"Average generation time: {results['avg_generation_time']:.3f} seconds")
     
-    # Print metrics
     print_metrics(results)
     
-    # Save results
-    save_results(results, 'test_results.json')
+    save_results(results, 'src\summary_eval_results\summary_evaluation_bart-large_our.json')
     
-    # Print example predictions
     print("\nExample Predictions:")
     for i, example in enumerate(results['example_predictions']):
         print(f"\nExample {i+1}:")

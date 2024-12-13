@@ -20,7 +20,12 @@ training_plots
 data
 visualization\training_plots
 문서화
-
+src\joke_eval_results
+src\summary_eval_results
+src\joke_eval_results\joke_evaluation_Qwen2.5_1.5B_instruct_ours.json
+src\joke_eval_results\joke_evaluation_Qwen2.5_1.5B_Instruct.json
+src\summary_eval_results\summary_evaluation_bart-large_our.json
+src\summary_eval_results\summary_evaluation_Qwen2.5-1.5B-Instruct.json
 joke_evaluation_gpt_4o_mini.json
 joke_evaluation_results.json
 summary_evaluation_bart-large-cnn.json
@@ -182,3 +187,9 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+joke_evaluation_results.json
+test_results.json
+src/joke_eval_results/joke_evaluation_Qwen2.5_1.5B_instruct_ours.json
+src/summary_eval_results/summary_evaluation_bart-large_our.json
+src/joke_eval_results/joke_evaluation_Qwen2.5_1.5B_Instruct.json
+src/summary_eval_results/summary_evaluation_Qwen2.5-1.5B-Instruct.json

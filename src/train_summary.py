@@ -141,8 +141,8 @@ def train_summarizer(system: JokeChatSystem, train_dataloader: DataLoader, val_d
     if epoch == config['training_config']['num_epochs'] - 1:
         system.save_models(model_type='summary')
         
-    plot_training_losses(train_losses, val_losses, 'summary', 'training_plots')
-    save_training_history(train_losses, val_losses, 'summary', 'training_plots')
+    plot_training_losses(train_losses, val_losses, 'summary', 'src\visualization\training_plots')
+    save_training_history(train_losses, val_losses, 'summary', 'src\visualization\training_plots')
     print("\nTraining completed!")
 
 def main():
@@ -157,7 +157,7 @@ def main():
         dialogsum_dataset['train']['dialogue'],
         dialogsum_dataset['train']['summary'],
         system.summary_tokenizer,
-        max_length=system.config['training_config']['max_summary_source_length']
+        max_length=system.config['training_config']['max_source_length']
     )
     
     train_dataloader = DataLoader(
@@ -170,7 +170,7 @@ def main():
         dialogsum_dataset['validation']['dialogue'],
         dialogsum_dataset['validation']['summary'],
         system.summary_tokenizer,
-        max_length=system.config['training_config']['max_summary_source_length']
+        max_length=system.config['training_config']['max_source_length']
     )
     
     val_dataloader = DataLoader(

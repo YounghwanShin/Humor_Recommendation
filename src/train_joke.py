@@ -18,9 +18,9 @@ logging.getLogger("transformers").setLevel(logging.ERROR)
 def load_data(file_path: str) -> tuple:
     print(f"Loading data from {file_path}")
     df = pd.read_csv(file_path)
-    df = df.dropna(subset=['Context', 'Joke'])
+    df = df.dropna(subset=['Context', 'Last_Utterance', 'Joke'])
     print(f"Loaded {len(df)} samples")
-    return df['Context'].tolist(), df['Joke'].tolist()
+    return df['Context'].tolist(), df['Last_Utterance'].tolist(), df['Joke'].tolist()
 
 def evaluate_model(model, dataloader, device) -> float:
     model.eval()
@@ -97,7 +97,7 @@ def train_joke_model(system: JokeChatSystem, train_dataloader: DataLoader, val_d
             attention_mask = batch['attention_mask'].to(system.device)
             labels = batch['labels'].to(system.device)
 
-            with amp.autocast(dtype=torch.float32):
+            with amp.autocast(dtype=torch.bfloat16):
                 outputs = system.joke_model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
@@ -161,8 +161,8 @@ def train_joke_model(system: JokeChatSystem, train_dataloader: DataLoader, val_d
     if epoch == config['training_config']['num_epochs'] - 1:
         system.save_models(model_type='joke')
         
-    plot_training_losses(train_losses, val_losses, 'joke', 'training_plots')
-    save_training_history(train_losses, val_losses, 'joke', 'training_plots')
+    plot_training_losses(train_losses, val_losses, 'joke', 'src\visualization\training_plots')
+    save_training_history(train_losses, val_losses, 'joke', 'src\visualization\training_plots')
     print("\nTraining completed!")
 
 def main():
@@ -170,11 +170,12 @@ def main():
     system = JokeChatSystem()
 
     print("\nLoading training and validation data...")
-    train_contexts, train_jokes = load_data('data/ctx_joke_tuning_data/train_data.csv')
-    val_contexts, val_jokes = load_data('data/ctx_joke_tuning_data/val_data.csv')
+    train_contexts, train_last_utterances, train_jokes = load_data('data/ctx_joke_tuning_data/train_data.csv')
+    val_contexts, val_last_utterances, val_jokes = load_data('data/ctx_joke_tuning_data/val_data.csv')
 
     train_dataset = ContextJokeDataset(
         train_contexts,
+        train_last_utterances,
         train_jokes,
         system.joke_tokenizer,
         max_length=system.config['training_config']['max_source_length']
@@ -182,6 +183,7 @@ def main():
     
     val_dataset = ContextJokeDataset(
         val_contexts,
+        val_last_utterances,
         val_jokes,
         system.joke_tokenizer,
         max_length=system.config['training_config']['max_source_length']
